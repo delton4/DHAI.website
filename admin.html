@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#041833">
+  <link rel="stylesheet" href="style.css">
+  <title>Research Team | Admin</title>
+</head>
+<body>
+  <header>
+    <h1>Admin Panel</h1>
+    <nav>
+      <a href="index.html">Home</a> |
+      <a href="researchers.html">Researchers</a> |
+      <a href="projects.html">Projects</a> |
+      <a href="publications.html">Publications</a> |
+      <a href="admin.html">Admin</a>
+    </nav>
+  </header>
+  <main>
+    <section>
+      <h2>CSV Administration</h2>
+      <p class="muted">This site is CSV-driven and does not store changes in the browser.</p>
+      <div class="admin-form">
+        <h3>Researchers</h3>
+        <p class="muted">Edit `researchers.csv` in the repo. Required headers: `name,title,description,slug`.</p>
+        <h3>Projects</h3>
+        <p class="muted">Edit `projects.csv` in the repo. Required headers: `slug,title,summary,leads,details,slides`.</p>
+        <p class="muted">Push changes to GitHub Pages and refresh the site to publish updates.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
