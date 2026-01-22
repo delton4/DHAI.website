@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#041833">
+  <link rel="stylesheet" href="style.css">
+  <title>Research Team | Researcher</title>
+</head>
+<body>
+  <header>
+    <h1 id="researcher-title">Researcher</h1>
+    <nav>
+      <a href="index.html">Home</a> |
+      <a href="researchers.html">Researchers</a> |
+      <a href="projects.html">Projects</a> |
+      <a href="publications.html">Publications</a> |
+      <a href="admin.html">Admin</a>
+    </nav>
+  </header>
+  <main id="researcher-main">
+    <section class="researcher-detail">
+      <div class="researcher-detail-avatar">
+        <span id="researcher-initials" aria-hidden="true"></span>
+      </div>
+      <div class="researcher-detail-body">
+        <h2 id="researcher-name"></h2>
+        <p id="researcher-role" class="researcher-title"></p>
+        <p id="researcher-bio" class="researcher-desc"></p>
+      </div>
+    </section>
+  </main>
+  <script>
+    (function loadResearcher() {
+      const params = new URLSearchParams(window.location.search);
+      const slugParam = params.get('slug');
+      const CSV_URL = 'researchers.csv';
+
+      function toSlug(name) {
+        return (name || '')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '') || 'researcher';
+      }
+
+      function parseCSV(text) {
+        const rows = [];
+        let row = [];
+        let field = '';
+        let inQuotes = false;
+        const cleaned = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+        for (let i = 0; i < cleaned.length; i += 1) {
+          const char = cleaned[i];
+          const nextChar = cleaned[i + 1];
+
+          if (char === '"') {
+            if (inQuotes && nextChar === '"') {
+              field += '"';
+              i += 1;
+            } else {
+              inQuotes = !inQuotes;
+            }
+            continue;
+          }
+
+          if (char === ',' && !inQuotes) {
+            row.push(field);
+            field = '';
+            continue;
+          }
+
+          if (char === '\n' && !inQuotes) {
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+            continue;
+          }
+
+          field += char;
+        }
+
+        if (field.length || row.length) {
+          row.push(field);
+          rows.push(row);
+        }
+
+        return rows.filter(r => r.some(cell => cell.trim() !== ''));
+      }
+
+      function rowsToObjects(rows) {
+        if (!rows.length) return [];
+        const headers = rows[0].map(h => h.trim().toLowerCase());
+        return rows.slice(1).map(row => {
+          const item = {};
+          headers.forEach((header, index) => {
+            item[header] = (row[index] || '').trim();
+          });
+          return item;
+        }).filter(item => item.name);
+      }
+
+      fetch(CSV_URL, { cache: 'no-store' })
+        .then(response => {
+          if (!response.ok) throw new Error('Failed to load CSV');
+          return response.text();
+        })
+        .then(text => {
+          const rows = parseCSV(text);
+          const list = rowsToObjects(rows).map(item => ({
+            name: item.name,
+            title: item.title,
+            description: item.description,
+            slug: item.slug || toSlug(item.name)
+          }));
+
+          const researcher = slugParam ? list.find(r => r.slug === slugParam) : list[0];
+          if (!researcher) {
+            document.getElementById('researcher-main').innerHTML = '<p class="muted">Researcher not found.</p>';
+            document.title = 'Researcher not found';
+            return;
+          }
+
+          document.title = researcher.name || 'Researcher';
+          document.getElementById('researcher-title').textContent = researcher.name || 'Researcher';
+          document.getElementById('researcher-name').textContent = researcher.name || 'Researcher';
+          document.getElementById('researcher-role').textContent = researcher.title || '';
+          document.getElementById('researcher-bio').textContent = researcher.description || '';
+          const initialsEl = document.getElementById('researcher-initials');
+          const initials = (researcher.name || 'R')
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(part => part[0].toUpperCase())
+            .join('');
+          initialsEl.textContent = initials || 'R';
+        })
+        .catch(err => {
+          console.error('Failed to load researcher:', err);
+          document.getElementById('researcher-main').innerHTML = '<p class="muted">Unable to load researcher. Check the CSV URL.</p>';
+        });
+    })();
+  </script>
+</body>
+</html>
