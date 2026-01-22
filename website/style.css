@@ -1,0 +1,406 @@
+:root {
+  --northwell-navy: #003a70;
+  --northwell-blue: #0067b1;
+  --northwell-teal: #00a7e1;
+  --northwell-sky: #9ad7f7;
+  --northwell-green: #00a651;
+  --northwell-lime: #8bc540;
+  --northwell-orange: #f7941d;
+  --northwell-yellow: #ffcb05;
+  --northwell-purple: #7a3e9d;
+  --northwell-lavender: #a57cc0;
+  --northwell-ice: #eef6ff;
+  --surface: rgba(255, 255, 255, 0.82);
+  --surface-strong: rgba(255, 255, 255, 0.9);
+  --stroke: rgba(0, 58, 112, 0.12);
+  --text-primary: #0d2344;
+  --text-muted: #4a5d78;
+  --shadow-strong: 0 24px 70px rgba(0, 58, 112, 0.15);
+  --radius-lg: 28px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "SF Pro Display", "SF Pro Text", "Avenir Next", "Helvetica Neue", sans-serif;
+  color: var(--text-primary);
+  background: radial-gradient(160% 140% at 18% 20%, rgba(154, 215, 247, 0.35), transparent 45%),
+              radial-gradient(120% 120% at 78% 18%, rgba(139, 197, 64, 0.22), transparent 46%),
+              radial-gradient(140% 130% at 18% 84%, rgba(247, 148, 29, 0.18), transparent 42%),
+              linear-gradient(180deg, #fdfefe 0%, #f7fbff 60%, #f1f7ff 100%);
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    conic-gradient(from 45deg at 12% 18%, var(--northwell-blue) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 26% 28%, var(--northwell-teal) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 38% 16%, var(--northwell-green) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 74% 18%, var(--northwell-purple) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 82% 32%, var(--northwell-orange) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 64% 26%, var(--northwell-lavender) 0deg 90deg, transparent 90deg 360deg);
+  background-size: 180px 180px, 150px 150px, 140px 140px, 160px 160px, 150px 150px, 120px 120px;
+  background-repeat: no-repeat;
+  background-position: 10% 18%, 22% 30%, 36% 14%, 74% 16%, 84% 30%, 64% 24%;
+  filter: drop-shadow(0 18px 20px rgba(0, 58, 112, 0.08));
+  opacity: 0.24;
+  z-index: -2;
+  animation: floatPattern 22s ease-in-out infinite alternate, triangleDrift 32s ease-in-out infinite alternate;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    conic-gradient(from 45deg at 18% 78%, var(--northwell-blue) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 28% 86%, var(--northwell-teal) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 40% 74%, var(--northwell-yellow) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 76% 74%, var(--northwell-orange) 0deg 90deg, transparent 90deg 360deg),
+    conic-gradient(from 45deg at 84% 82%, var(--northwell-purple) 0deg 90deg, transparent 90deg 360deg),
+    linear-gradient(120deg, rgba(0, 58, 112, 0.06), rgba(0, 103, 177, 0.04), rgba(0, 166, 81, 0.05)),
+    linear-gradient(rgba(0, 58, 112, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 58, 112, 0.06) 1px, transparent 1px);
+  background-size:
+    160px 160px, 140px 140px, 150px 150px, 140px 140px, 120px 120px,
+    100% 100%, 200px 200px, 200px 200px;
+  background-position:
+    18% 78%, 28% 86%, 42% 74%, 76% 74%, 86% 82%,
+    0 0, 0 0, 0 0;
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat, repeat;
+  mix-blend-mode: normal;
+  opacity: 0.26;
+  z-index: -1;
+  pointer-events: none;
+  animation: floatPatternAlt 24s ease-in-out infinite alternate, triangleDriftAlt 36s ease-in-out infinite alternate;
+}
+
+@keyframes floatPattern {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); }
+  50% { transform: translate3d(8px, -10px, 0) rotate(1deg) scale(1.01); }
+  100% { transform: translate3d(-10px, -18px, 0) rotate(-1deg) scale(1.02); }
+}
+
+@keyframes floatPatternAlt {
+  0% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(-6px, 10px, 0) rotate(-0.8deg); }
+  100% { transform: translate3d(12px, 16px, 0) rotate(1deg); }
+}
+
+@keyframes triangleDrift {
+  0% { background-position: 10% 18%, 22% 30%, 36% 14%, 74% 16%, 84% 30%, 64% 24%; }
+  50% { background-position: 12% 20%, 24% 32%, 38% 16%, 72% 18%, 82% 32%, 62% 26%; }
+  100% { background-position: 9% 16%, 20% 28%, 34% 12%, 76% 14%, 86% 28%, 66% 22%; }
+}
+
+@keyframes triangleDriftAlt {
+  0% { background-position: 18% 78%, 28% 86%, 42% 74%, 76% 74%, 86% 82%, 0 0, 0 0, 0 0; }
+  50% { background-position: 20% 80%, 30% 88%, 44% 76%, 74% 76%, 84% 84%, 0 0, 0 0, 0 0; }
+  100% { background-position: 17% 76%, 26% 84%, 40% 72%, 78% 72%, 88% 80%, 0 0, 0 0, 0 0; }
+}
+
+@keyframes bannerFloat {
+  0% { transform: translateY(0) scale(1); }
+  100% { transform: translateY(-10px) scale(1.01); }
+}
+
+::selection {
+  background: rgba(0, 103, 177, 0.18);
+  color: var(--northwell-navy);
+}
+
+a {
+  color: inherit;
+}
+
+.corner-banner {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: min(26vw, 320px);
+  aspect-ratio: 1200 / 630;
+  background-image: url("northwell-health-better\ image.png");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.50;
+  filter: drop-shadow(0 12px 24px rgba(0, 58, 112, 0.16));
+  animation: bannerFloat 18s ease-in-out infinite alternate;
+}
+
+header {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px 28px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 46px);
+  letter-spacing: 0.02em;
+  background: linear-gradient(120deg, var(--northwell-blue), var(--northwell-teal), var(--northwell-lime));
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+header h1::after {
+  content: "";
+  display: block;
+  margin-top: 10px;
+  width: 140px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--northwell-purple), var(--northwell-orange), var(--northwell-blue));
+  opacity: 0.7;
+}
+
+nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(120deg, rgba(0, 103, 177, 0.12), rgba(0, 166, 81, 0.08), rgba(255, 255, 255, 0.88));
+  backdrop-filter: blur(12px);
+  box-shadow: 0 14px 46px rgba(0, 58, 112, 0.15);
+  font-size: 0;
+}
+
+nav a {
+  font-size: 0.95rem;
+  text-decoration: none;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.78));
+  color: var(--northwell-navy);
+  letter-spacing: 0.04em;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 10px 30px rgba(0, 58, 112, 0.12);
+  transition: transform 160ms ease, box-shadow 220ms ease, border-color 160ms ease, color 160ms ease, background 200ms ease;
+}
+
+nav a:hover {
+  transform: translateY(-2px) scale(1.01);
+  border-color: rgba(0, 103, 177, 0.25);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 16px 46px rgba(0, 58, 112, 0.18);
+  color: var(--northwell-blue);
+  background: linear-gradient(120deg, rgba(154, 215, 247, 0.36), rgba(255, 255, 255, 0.95));
+}
+
+nav a:active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 8px 20px rgba(0, 58, 112, 0.18);
+}
+
+main {
+  max-width: 1100px;
+  margin: 10px auto 72px;
+  padding: 32px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.75));
+  border: 1px solid rgba(0, 58, 112, 0.08);
+  box-shadow: var(--shadow-strong);
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+
+main::before {
+  content: "";
+  position: absolute;
+  inset: -25% -18% auto auto;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, rgba(0, 103, 177, 0.18), transparent 62%);
+  filter: blur(12px);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+main::after {
+  content: "";
+  position: absolute;
+  inset: auto auto -30% -14%;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(139, 197, 64, 0.16), transparent 60%);
+  filter: blur(18px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+main > * {
+  position: relative;
+  z-index: 1;
+}
+
+main p {
+  color: var(--text-muted);
+  line-height: 1.7;
+  font-size: 1.05rem;
+  margin: 0 0 12px;
+}
+
+main h2 {
+  margin: 0 0 10px;
+  font-size: 1.4rem;
+  letter-spacing: 0.02em;
+  color: var(--northwell-navy);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+article, section, ul {
+  margin: 0;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--surface);
+  border: 1px solid var(--stroke);
+  box-shadow: 0 18px 55px rgba(0, 58, 112, 0.12);
+}
+
+.researcher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.researcher-card {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 16px;
+  align-items: center;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.86));
+  border: 1px solid rgba(0, 58, 112, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  box-shadow: 0 12px 38px rgba(0, 58, 112, 0.1);
+}
+
+.avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(140deg, rgba(0, 103, 177, 0.12), rgba(139, 197, 64, 0.14), rgba(0, 166, 81, 0.12));
+  display: grid;
+  place-items: center;
+  color: var(--northwell-navy);
+  font-weight: 700;
+  font-size: 1.2rem;
+  border: 1px solid rgba(0, 58, 112, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 10px 24px rgba(0, 58, 112, 0.1);
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.researcher-body h3 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+  color: var(--northwell-navy);
+}
+
+.researcher-title {
+  margin: 0 0 8px;
+  color: var(--northwell-blue);
+  font-weight: 600;
+}
+
+.researcher-desc {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+article + * , section + * , ul + * {
+  margin-top: 18px;
+}
+
+ul {
+  list-style: none;
+}
+
+ul li {
+  margin: 0;
+  padding: 12px 0;
+}
+
+ul li + li {
+  border-top: 1px solid rgba(0, 58, 112, 0.08);
+}
+
+main a {
+  color: var(--northwell-blue);
+  text-decoration: none;
+  font-weight: 600;
+  position: relative;
+  transition: color 160ms ease;
+}
+
+main a::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--northwell-purple), var(--northwell-orange), var(--northwell-blue));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 200ms ease;
+}
+
+main a:hover {
+  color: var(--northwell-navy);
+}
+
+main a:hover::after {
+  transform: scaleX(1);
+}
+
+strong {
+  color: var(--northwell-blue);
+}
+
+@media (max-width: 720px) {
+  header, main {
+    padding: 22px;
+  }
+  nav {
+    justify-content: center;
+  }
+  nav a {
+    padding: 0.55rem 1rem;
+  }
+  main {
+    margin: 6px 16px 64px;
+  }
+  .corner-banner {
+    width: 46vw;
+    bottom: 0;
+    right: 0;
+    opacity: 0.78;
+  }
+}
