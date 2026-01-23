@@ -8,7 +8,6 @@
   <title>Research Team | Projects</title>
 </head>
 <body>
-  <div class="corner-banner" aria-hidden="true"></div>
   <header>
     <h1>Projects</h1>
     <nav>
@@ -21,9 +20,72 @@
   </header>
   <main>
     <section>
-      <h2>Test Project</h2>
-      <p>A brief description of the project goals and the challenges it addresses in our research area.</p>
+      <h2>Current Initiatives</h2>
+      <p class="muted">Browse active and upcoming projects. Select one to view details and slides.</p>
+      <div id="project-grid" class="project-grid"></div>
     </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="data.js"></script>
+  <script>
+    (function renderProjects() {
+      const grid = document.getElementById('project-grid');
+
+      SiteData.getProjects()
+        .then(projects => {
+          if (!projects.length) {
+            grid.innerHTML = '<p class="muted">No projects available yet.</p>';
+            return;
+          }
+
+          grid.innerHTML = '';
+          projects.forEach(project => {
+            const card = document.createElement('article');
+            card.className = 'project-card';
+
+            const link = document.createElement('a');
+            link.className = 'project-card-link';
+            link.href = `project.html?slug=${encodeURIComponent(project.slug)}`;
+
+            const cover = document.createElement('div');
+            cover.className = 'project-cover';
+            if (project.cover) {
+              const img = document.createElement('img');
+              img.src = project.cover;
+              img.alt = project.title || 'Project cover';
+              img.onerror = () => {
+                img.remove();
+                cover.textContent = project.title || 'Project';
+              };
+              cover.appendChild(img);
+            } else {
+              cover.textContent = project.title || 'Project';
+            }
+
+            const body = document.createElement('div');
+            body.className = 'project-body';
+
+            const title = document.createElement('h3');
+            title.textContent = project.title || 'Untitled project';
+
+            const summary = document.createElement('p');
+            summary.className = 'muted';
+            summary.textContent = project.summary || 'Details coming soon.';
+
+            body.appendChild(title);
+            body.appendChild(summary);
+
+            link.appendChild(cover);
+            link.appendChild(body);
+            card.appendChild(link);
+            grid.appendChild(card);
+          });
+        })
+        .catch(err => {
+          console.error('Failed to load projects:', err);
+          grid.innerHTML = '<p class="muted">Unable to load projects. Check the Excel file.</p>';
+        });
+    })();
+  </script>
 </body>
 </html>

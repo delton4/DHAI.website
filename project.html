@@ -20,9 +20,7 @@
   </header>
   <main id="project-main">
     <section class="project-hero">
-      <div class="project-hero-image">
-        <div id="project-cover" class="project-cover-placeholder">Project Overview</div>
-      </div>
+      <div class="project-hero-image" id="project-hero-image"></div>
       <div class="project-hero-body">
         <h2 id="project-name"></h2>
         <p id="project-summary" class="muted"></p>
@@ -35,123 +33,35 @@
       <div id="slides-grid" class="slides-grid"></div>
     </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="data.js"></script>
   <script>
-    const CSV_URL = 'projects.csv';
-
-    function toSlug(value) {
-      return (value || '')
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '') || 'project';
-    }
-
-    function parseCSV(text) {
-      const rows = [];
-      let row = [];
-      let field = '';
-      let inQuotes = false;
-      const cleaned = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-      for (let i = 0; i < cleaned.length; i += 1) {
-        const char = cleaned[i];
-        const nextChar = cleaned[i + 1];
-
-        if (char === '"') {
-          if (inQuotes && nextChar === '"') {
-            field += '"';
-            i += 1;
-          } else {
-            inQuotes = !inQuotes;
-          }
-          continue;
-        }
-
-        if (char === ',' && !inQuotes) {
-          row.push(field);
-          field = '';
-          continue;
-        }
-
-        if (char === '\n' && !inQuotes) {
-          row.push(field);
-          rows.push(row);
-          row = [];
-          field = '';
-          continue;
-        }
-
-        field += char;
-      }
-
-      if (field.length || row.length) {
-        row.push(field);
-        rows.push(row);
-      }
-
-      return rows.filter(r => r.some(cell => cell.trim() !== ''));
-    }
-
-    function rowsToObjects(rows) {
-      if (!rows.length) return [];
-      const headers = rows[0].map(h => h.trim().toLowerCase());
-      return rows.slice(1).map(row => {
-        const item = {};
-        headers.forEach((header, index) => {
-          item[header] = (row[index] || '').trim();
-        });
-        return item;
-      }).filter(item => item.title);
-    }
-
-    function splitList(value) {
-      return (value || '')
-        .split('|')
-        .map(item => item.trim())
-        .filter(Boolean);
-    }
-
-    function parseLeads(value) {
-      return splitList(value).map(entry => {
-        const parts = entry.split('::').map(part => part.trim());
-        return {
-          name: parts[0] || '',
-          title: parts[1] || '',
-          slug: toSlug(parts[0] || '')
-        };
-      }).filter(lead => lead.name);
-    }
-
-    function parseSlides(value) {
-      return splitList(value).map(entry => {
-        const parts = entry.split('::').map(part => part.trim());
-        return {
-          title: parts[0] || '',
-          caption: parts[1] || ''
-        };
-      }).filter(slide => slide.title);
-    }
-
     (function loadProject() {
       const params = new URLSearchParams(window.location.search);
       const slug = params.get('slug');
-      fetch(CSV_URL, { cache: 'no-store' })
-        .then(response => {
-          if (!response.ok) throw new Error('Failed to load CSV');
-          return response.text();
-        })
-        .then(text => {
-          const rows = parseCSV(text);
-          const projects = rowsToObjects(rows).map(item => ({
-            slug: item.slug || toSlug(item.title),
-            title: item.title,
-            summary: item.summary || '',
-            leads: parseLeads(item.leads),
-            details: splitList(item.details),
-            slides: parseSlides(item.slides)
-          }));
+      const heroEl = document.getElementById('project-hero-image');
 
-          const project = projects.find(p => p.slug === slug) || projects[0];
+      function setHero(project) {
+        heroEl.innerHTML = '';
+        heroEl.classList.remove('project-cover-placeholder');
+        if (project.cover) {
+          const img = document.createElement('img');
+          img.src = project.cover;
+          img.alt = project.title || 'Project cover';
+          img.onerror = () => {
+            img.remove();
+            heroEl.textContent = project.title || 'Project Overview';
+            heroEl.classList.add('project-cover-placeholder');
+          };
+          heroEl.appendChild(img);
+        } else {
+          heroEl.textContent = project.title || 'Project Overview';
+          heroEl.classList.add('project-cover-placeholder');
+        }
+      }
+
+      SiteData.getProjectBySlug(slug)
+        .then(project => {
           if (!project) {
             document.getElementById('project-main').innerHTML = '<p class="muted">Project not found.</p>';
             document.title = 'Project not found';
@@ -162,7 +72,7 @@
           document.getElementById('project-title').textContent = project.title || 'Project';
           document.getElementById('project-name').textContent = project.title || 'Project';
           document.getElementById('project-summary').textContent = project.summary || '';
-          document.getElementById('project-cover').textContent = project.title || 'Project Overview';
+          setHero(project);
 
           const leadsEl = document.getElementById('project-leads');
           leadsEl.innerHTML = '';
@@ -186,27 +96,35 @@
           slidesGrid.innerHTML = '';
           if (!project.slides || !project.slides.length) {
             slidesGrid.innerHTML = '<p class="muted">Slides will appear here when available.</p>';
-          } else {
-            project.slides.forEach(slide => {
-              const card = document.createElement('article');
-              card.className = 'slide-card';
-              const body = document.createElement('div');
-              body.className = 'slide-body';
-              const title = document.createElement('h4');
-              title.textContent = slide.title || 'Slide';
-              const caption = document.createElement('p');
-              caption.className = 'muted';
-              caption.textContent = slide.caption || '';
-              body.appendChild(title);
-              body.appendChild(caption);
-              card.appendChild(body);
-              slidesGrid.appendChild(card);
-            });
+            return;
           }
+
+          project.slides.forEach(slide => {
+            const card = document.createElement('article');
+            card.className = 'slide-card';
+            if (slide.image) {
+              const img = document.createElement('img');
+              img.src = slide.image;
+              img.alt = slide.title || 'Slide';
+              img.onerror = () => img.remove();
+              card.appendChild(img);
+            }
+            const body = document.createElement('div');
+            body.className = 'slide-body';
+            const title = document.createElement('h4');
+            title.textContent = slide.title || 'Slide';
+            const caption = document.createElement('p');
+            caption.className = 'muted';
+            caption.textContent = slide.caption || '';
+            body.appendChild(title);
+            body.appendChild(caption);
+            card.appendChild(body);
+            slidesGrid.appendChild(card);
+          });
         })
         .catch(err => {
-          console.error('Failed to load projects:', err);
-          document.getElementById('project-main').innerHTML = '<p class="muted">Unable to load project. Check the CSV URL.</p>';
+          console.error('Failed to load project:', err);
+          document.getElementById('project-main').innerHTML = '<p class="muted">Unable to load project. Check the Excel file.</p>';
         });
     })();
   </script>

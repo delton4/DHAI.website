@@ -8,7 +8,6 @@
   <title>Research Team | Researchers</title>
 </head>
 <body>
-  <div class="corner-banner" aria-hidden="true"></div>
   <header>
     <h1>Researchers</h1>
     <nav>
@@ -26,61 +25,23 @@
       <div id="researcher-grid" class="researcher-grid" aria-live="polite"></div>
     </section>
   </main>
-  <script id="researcher-data" type="application/json">
-    [
-      {
-        "name": "Theofilos",
-        "title": "Principal Investigator",
-        "description": "Leads translational AI projects and coordinates collaborations across clinical and data science teams.",
-        "image": "Theofilos.png"
-      },
-      {
-        "name": "John Doe",
-        "title": "Senior Research Scientist",
-        "description": "Focuses on applied research bridging theoretical insights with practical solutions in healthcare.",
-        "image": "https://via.placeholder.com/160x160.png?text=John+Doe"
-      },
-      {
-        "name": "Alex Kim",
-        "title": "Research Fellow",
-        "description": "Explores data quality, fairness, and robustness while prototyping next-generation clinical decision tools.",
-        "image": "https://via.placeholder.com/160x160.png?text=Alex+Kim"
-      }
-    ]
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="data.js"></script>
   <script>
     (function loadResearchers() {
       const grid = document.getElementById('researcher-grid');
       const status = document.getElementById('data-status');
-      const inlineDataEl = document.getElementById('researcher-data');
-      const STORAGE_KEY = 'researchersData';
-
-      function parseInlineData() {
-        if (!inlineDataEl) return [];
-        try {
-          const json = JSON.parse(inlineDataEl.textContent);
-          return Array.isArray(json) ? json : [];
-        } catch (_) {
-          return [];
-        }
-      }
-
-      function loadStoredData() {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return null;
-        try {
-          const data = JSON.parse(raw);
-          return Array.isArray(data) ? data : null;
-        } catch (_) {
-          return null;
-        }
-      }
 
       function render(list) {
         grid.innerHTML = '';
         list.forEach(person => {
+          const slug = person.slug || SiteData.toSlug(person.name);
           const card = document.createElement('article');
           card.className = 'researcher-card';
+
+          const link = document.createElement('a');
+          link.href = `researcher.html?slug=${encodeURIComponent(slug)}`;
+          link.className = 'researcher-link';
 
           const avatar = document.createElement('div');
           avatar.className = 'avatar';
@@ -88,9 +49,13 @@
             const img = document.createElement('img');
             img.src = person.image;
             img.alt = person.name ? person.name + ' portrait' : 'Researcher portrait';
+            img.onerror = () => {
+              img.remove();
+              avatar.textContent = getInitials(person.name);
+            };
             avatar.appendChild(img);
           } else {
-            avatar.textContent = (person.name || 'R').slice(0, 1).toUpperCase();
+            avatar.textContent = getInitials(person.name);
           }
 
           const body = document.createElement('div');
@@ -111,20 +76,31 @@
           body.appendChild(title);
           body.appendChild(desc);
 
-          card.appendChild(avatar);
-          card.appendChild(body);
-
+          link.appendChild(avatar);
+          link.appendChild(body);
+          card.appendChild(link);
           grid.appendChild(card);
         });
       }
 
-      const list = loadStoredData() || parseInlineData();
-      if (!list.length) {
-        status.textContent = 'No researchers found in the dataset.';
-        return;
+      function getInitials(name) {
+        const parts = (name || 'R').split(/\s+/).filter(Boolean).slice(0, 2);
+        return parts.map(part => part[0].toUpperCase()).join('') || 'R';
       }
-      status.textContent = '';
-      render(list);
+
+      SiteData.getResearchers()
+        .then(list => {
+          if (!list.length) {
+            status.textContent = 'No researchers found in the dataset.';
+            return;
+          }
+          status.textContent = '';
+          render(list);
+        })
+        .catch(err => {
+          console.error('Failed to load researchers:', err);
+          status.textContent = 'Unable to load researchers. Check the Excel file.';
+        });
     })();
   </script>
 </body>
