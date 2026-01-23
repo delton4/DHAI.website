@@ -27,6 +27,11 @@
         <p id="researcher-bio" class="researcher-desc"></p>
       </div>
     </section>
+    <section class="researcher-projects">
+      <h3>Projects</h3>
+      <p id="researcher-projects-status" class="muted">Loading projects...</p>
+      <div id="researcher-projects-grid" class="project-grid" aria-live="polite"></div>
+    </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="data.js"></script>
@@ -35,6 +40,8 @@
       const params = new URLSearchParams(window.location.search);
       const slugParam = params.get('slug');
       const avatarEl = document.getElementById('researcher-avatar');
+      const projectsGrid = document.getElementById('researcher-projects-grid');
+      const projectsStatus = document.getElementById('researcher-projects-status');
 
       function getInitials(name) {
         const parts = (name || 'R').split(/\s+/).filter(Boolean).slice(0, 2);
@@ -57,6 +64,50 @@
         }
       }
 
+      function renderProjects(projects) {
+        projectsGrid.innerHTML = '';
+        projects.forEach(project => {
+          const card = document.createElement('article');
+          card.className = 'project-card';
+
+          const link = document.createElement('a');
+          link.className = 'project-card-link';
+          link.href = `project.html?slug=${encodeURIComponent(project.slug)}`;
+
+          const cover = document.createElement('div');
+          cover.className = 'project-cover';
+          if (project.cover) {
+            const img = document.createElement('img');
+            img.src = project.cover;
+            img.alt = project.title || 'Project cover';
+            img.onerror = () => {
+              img.remove();
+              cover.textContent = project.title || 'Project';
+            };
+            cover.appendChild(img);
+          } else {
+            cover.textContent = project.title || 'Project';
+          }
+
+          const body = document.createElement('div');
+          body.className = 'project-body';
+
+          const title = document.createElement('h3');
+          title.textContent = project.title || 'Untitled project';
+
+          const summary = document.createElement('p');
+          summary.textContent = project.summary || 'Details coming soon.';
+
+          body.appendChild(title);
+          body.appendChild(summary);
+
+          link.appendChild(cover);
+          link.appendChild(body);
+          card.appendChild(link);
+          projectsGrid.appendChild(card);
+        });
+      }
+
       SiteData.getResearchers()
         .then(list => {
           const researcher = slugParam
@@ -75,6 +126,22 @@
           document.getElementById('researcher-role').textContent = researcher.title || '';
           document.getElementById('researcher-bio').textContent = researcher.description || '';
           setAvatar(researcher);
+
+          if (projectsGrid && projectsStatus) {
+            SiteData.getProjectsForResearcher(researcher.slug)
+              .then(projects => {
+                if (!projects.length) {
+                  projectsStatus.textContent = 'No projects assigned yet.';
+                  return;
+                }
+                projectsStatus.textContent = '';
+                renderProjects(projects);
+              })
+              .catch(err => {
+                console.error('Failed to load researcher projects:', err);
+                projectsStatus.textContent = 'Unable to load projects. Check the Excel file.';
+              });
+          }
         })
         .catch(err => {
           console.error('Failed to load researcher:', err);

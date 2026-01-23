@@ -161,6 +161,13 @@
     }).filter(item => item.title));
   }
 
+  function getProjectsForResearcher(slug) {
+    if (!slug) return Promise.resolve([]);
+    return getProjects().then(projects => projects.filter(project =>
+      (project.leads || []).some(lead => lead.slug === slug)
+    ));
+  }
+
   function getProjectBySlug(slug) {
     return getProjects().then(list => list.find(item => item.slug === slug) || list[0] || null);
   }
@@ -168,6 +175,7 @@
   window.SiteData = {
     getResearchers,
     getProjects,
+    getProjectsForResearcher,
     getProjectBySlug,
     toSlug
   };
