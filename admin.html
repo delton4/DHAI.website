@@ -18,22 +18,565 @@
       <a href="admin.html">Admin</a>
     </nav>
   </header>
-  <main>
-    <section>
-      <h2>Excel Data Source</h2>
-      <p class="muted">This site reads all data from `data.xlsx`. No browser storage is used.</p>
-      <div class="admin-form">
-        <h3>Researchers Sheet</h3>
-        <p class="muted">Sheet name: `Researchers`</p>
-        <p class="muted">Headers: `name`, `title`, `description`, `image`, `slug`</p>
-        <h3>Projects Sheet</h3>
-        <p class="muted">Sheet name: `Projects`</p>
-        <p class="muted">Headers: `slug`, `title`, `summary`, `cover`, `leads`, `details`, `slides`</p>
-        <p class="muted">Leads format: `Name::Title::slug|Another Name::Title`</p>
-        <p class="muted">Slides format: `Slide Title::Image URL::Caption|Another Slide::Image URL`</p>
-        <p class="muted">Upload your updated `data.xlsx` to GitHub Pages to publish changes.</p>
+  <main class="admin-layout">
+    <section class="admin-primary">
+      <div class="admin-toolbar">
+        <div>
+          <h2>Content Editor</h2>
+          <p class="muted" id="admin-source">Loading data source...</p>
+        </div>
+        <div class="admin-actions">
+          <button class="admin-button" id="reload-btn" type="button">Reload Excel</button>
+          <button class="admin-button primary" id="export-btn" type="button" disabled>Download Updated Excel</button>
+          <label class="admin-toggle">
+            <input type="checkbox" id="preview-toggle">
+            Preview mode
+          </label>
+        </div>
       </div>
+      <div class="admin-tabs" role="tablist" aria-label="Content sections">
+        <button class="admin-tab active" type="button" data-tab="Researchers" role="tab" aria-selected="true">Researchers</button>
+        <button class="admin-tab" type="button" data-tab="Projects" role="tab" aria-selected="false">Projects</button>
+        <button class="admin-tab" type="button" data-tab="Publications" role="tab" aria-selected="false">Publications</button>
+      </div>
+      <div id="admin-content" class="admin-content"></div>
     </section>
+    <aside class="admin-sidebar">
+      <section class="admin-card">
+        <h3>Status</h3>
+        <p id="admin-status" class="muted" aria-live="polite">Loading Excel data...</p>
+        <p class="muted">Edits stay in this browser until you download and upload the new Excel file to GitHub.</p>
+      </section>
+      <section class="admin-card">
+        <h3>Schema Inspector</h3>
+        <div id="schema-output" class="schema-output"></div>
+      </section>
+      <section class="admin-card">
+        <h3>Formatting Tips</h3>
+        <p class="muted"><strong>Leads:</strong> Name::Title::slug separated with |</p>
+        <p class="muted"><strong>Slides:</strong> Title::Image URL::Caption separated with |</p>
+        <p class="muted"><strong>Images:</strong> Use public URLs or data URIs.</p>
+      </section>
+    </aside>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    (function initAdmin() {
+      const SCHEMAS = {
+        Researchers: {
+          columns: ['name', 'title', 'description', 'image', 'slug'],
+          required: ['name']
+        },
+        Projects: {
+          columns: ['slug', 'title', 'summary', 'cover', 'leads', 'details', 'slides'],
+          required: ['title']
+        },
+        Publications: {
+          columns: ['title', 'url', 'authors', 'year'],
+          required: ['title']
+        }
+      };
+
+      const state = {
+        sheets: {},
+        meta: {},
+        activeTab: 'Researchers',
+        previewMode: false,
+        sourceUrl: ''
+      };
+
+      const adminContent = document.getElementById('admin-content');
+      const statusEl = document.getElementById('admin-status');
+      const sourceEl = document.getElementById('admin-source');
+      const exportBtn = document.getElementById('export-btn');
+      const previewToggle = document.getElementById('preview-toggle');
+      const schemaOutput = document.getElementById('schema-output');
+
+      function setStatus(message, tone) {
+        statusEl.textContent = message;
+        statusEl.className = `muted ${tone ? `status-${tone}` : ''}`.trim();
+      }
+
+      function slugify(value) {
+        return String(value || '')
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+      }
+
+      function getExcelUrl() {
+        const metaUrl = document.querySelector('meta[name="data-xlsx"]')?.content;
+        const configured = (window.DATA_XLSX_URL || metaUrl || 'data.xlsx').trim();
+        return new URL(configured, window.location.href).toString();
+      }
+
+      function normalizeHeaders(headers, schema) {
+        const clean = headers.map(header => String(header || '').trim()).filter(Boolean);
+        if (!clean.length) {
+          return schema ? schema.columns.slice() : [];
+        }
+        return clean;
+      }
+
+      function parseSheet(sheetName, workbook) {
+        const schema = SCHEMAS[sheetName];
+        const sheet = workbook.Sheets[sheetName];
+        const raw = sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) : [];
+        const headers = normalizeHeaders(raw[0] || [], schema);
+        const rows = raw.slice(1).map(row => {
+          const entry = {};
+          headers.forEach((header, index) => {
+            entry[header] = String(row[index] ?? '').trim();
+          });
+          return entry;
+        });
+        const missing = schema ? schema.columns.filter(col => !headers.includes(col)) : [];
+        const extra = schema ? headers.filter(col => !schema.columns.includes(col)) : [];
+        return { headers, rows, missing, extra };
+      }
+
+      function loadWorkbook() {
+        const url = getExcelUrl();
+        state.sourceUrl = url;
+        sourceEl.textContent = `Source: ${url}`;
+        setStatus('Loading Excel data...', 'loading');
+        exportBtn.disabled = true;
+
+        return fetch(url, { cache: 'no-store' })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load ${url} (${response.status})`);
+            }
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('text/html')) {
+              throw new Error(`Unexpected HTML response for ${url}`);
+            }
+            return response.arrayBuffer();
+          })
+          .then(buffer => XLSX.read(buffer, { type: 'array' }))
+          .then(workbook => {
+            Object.keys(SCHEMAS).forEach(sheetName => {
+              state.sheets[sheetName] = parseSheet(sheetName, workbook);
+            });
+            setStatus('Excel loaded. You can edit and export.', 'success');
+            exportBtn.disabled = false;
+            renderAll();
+          })
+          .catch(error => {
+            console.error('Failed to load Excel:', error);
+            setStatus('Unable to load Excel. Verify the data.xlsx URL.', 'error');
+            adminContent.innerHTML = '<p class="muted">No data loaded.</p>';
+          });
+      }
+
+      function renderAll() {
+        renderTabs();
+        renderSchemaInspector();
+        renderContent();
+      }
+
+      function renderTabs() {
+        document.querySelectorAll('.admin-tab').forEach(button => {
+          const isActive = button.dataset.tab === state.activeTab;
+          button.classList.toggle('active', isActive);
+          button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+      }
+
+      function renderSchemaInspector() {
+        schemaOutput.innerHTML = '';
+        Object.keys(SCHEMAS).forEach(sheetName => {
+          const meta = state.sheets[sheetName];
+          const schema = SCHEMAS[sheetName];
+          const wrapper = document.createElement('div');
+          wrapper.className = 'schema-card';
+          const title = document.createElement('h4');
+          title.textContent = sheetName;
+          const expected = document.createElement('p');
+          expected.className = 'muted';
+          expected.textContent = `Expected: ${schema.columns.join(', ')}`;
+          const missing = document.createElement('p');
+          missing.className = meta.missing.length ? 'schema-warning' : 'muted';
+          missing.textContent = meta.missing.length ? `Missing: ${meta.missing.join(', ')}` : 'Missing: none';
+          const extra = document.createElement('p');
+          extra.className = meta.extra.length ? 'schema-note' : 'muted';
+          extra.textContent = meta.extra.length ? `Extra: ${meta.extra.join(', ')}` : 'Extra: none';
+          wrapper.appendChild(title);
+          wrapper.appendChild(expected);
+          wrapper.appendChild(missing);
+          wrapper.appendChild(extra);
+          if (meta.missing.length) {
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'admin-button small';
+            addBtn.textContent = 'Add missing columns';
+            addBtn.addEventListener('click', () => {
+              applyMissingColumns(sheetName);
+            });
+            wrapper.appendChild(addBtn);
+          }
+          schemaOutput.appendChild(wrapper);
+        });
+      }
+
+      function renderContent() {
+        const sheet = state.sheets[state.activeTab];
+        if (!sheet) {
+          adminContent.innerHTML = '<p class="muted">No data loaded.</p>';
+          return;
+        }
+
+        adminContent.innerHTML = '';
+        const controls = document.createElement('div');
+        controls.className = 'admin-controls';
+
+        const addButton = document.createElement('button');
+        addButton.type = 'button';
+        addButton.className = 'admin-button';
+        addButton.textContent = `Add ${state.activeTab.slice(0, -1)}`;
+        addButton.addEventListener('click', () => addRow(state.activeTab));
+        controls.appendChild(addButton);
+
+        adminContent.appendChild(controls);
+
+        if (state.previewMode) {
+          adminContent.appendChild(renderPreview(state.activeTab, sheet.rows));
+        } else {
+          adminContent.appendChild(renderTable(state.activeTab, sheet));
+        }
+      }
+
+      function renderTable(sheetName, sheet) {
+        const table = document.createElement('table');
+        table.className = 'admin-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        sheet.headers.forEach(header => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          headRow.appendChild(th);
+        });
+        const actionTh = document.createElement('th');
+        actionTh.textContent = 'Actions';
+        headRow.appendChild(actionTh);
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        sheet.rows.forEach((row, rowIndex) => {
+          const tr = document.createElement('tr');
+          sheet.headers.forEach(header => {
+            const td = document.createElement('td');
+            const field = header.toLowerCase();
+            const value = row[header] || '';
+            const input = createFieldInput(field, value, (nextValue) => {
+              updateCell(sheetName, rowIndex, header, nextValue);
+            });
+            td.appendChild(input);
+            if (isImageField(field)) {
+              const preview = createImagePreview(value);
+              td.appendChild(preview);
+            }
+            tr.appendChild(td);
+          });
+          const actionsTd = document.createElement('td');
+          const actions = document.createElement('div');
+          actions.className = 'admin-row-actions';
+          const upBtn = document.createElement('button');
+          upBtn.type = 'button';
+          upBtn.className = 'admin-button small';
+          upBtn.textContent = 'Up';
+          upBtn.disabled = rowIndex === 0;
+          upBtn.addEventListener('click', () => moveRow(sheetName, rowIndex, -1));
+          const downBtn = document.createElement('button');
+          downBtn.type = 'button';
+          downBtn.className = 'admin-button small';
+          downBtn.textContent = 'Down';
+          downBtn.disabled = rowIndex === sheet.rows.length - 1;
+          downBtn.addEventListener('click', () => moveRow(sheetName, rowIndex, 1));
+          const deleteBtn = document.createElement('button');
+          deleteBtn.type = 'button';
+          deleteBtn.className = 'admin-button small danger';
+          deleteBtn.textContent = 'Delete';
+          deleteBtn.addEventListener('click', () => deleteRow(sheetName, rowIndex));
+          actions.appendChild(upBtn);
+          actions.appendChild(downBtn);
+          actions.appendChild(deleteBtn);
+          actionsTd.appendChild(actions);
+          tr.appendChild(actionsTd);
+          tbody.appendChild(tr);
+
+          const errors = validateRow(sheetName, row);
+          if (errors.length) {
+            const errorRow = document.createElement('tr');
+            errorRow.className = 'admin-row-errors';
+            const errorCell = document.createElement('td');
+            errorCell.colSpan = sheet.headers.length + 1;
+            errorCell.innerHTML = errors.map(err => `<span>${err}</span>`).join('');
+            errorRow.appendChild(errorCell);
+            tbody.appendChild(errorRow);
+          }
+        });
+        table.appendChild(tbody);
+        return table;
+      }
+
+      function createFieldInput(field, value, onChange) {
+        const isLong = ['description', 'summary', 'details', 'slides', 'leads'].includes(field);
+        const input = isLong ? document.createElement('textarea') : document.createElement('input');
+        input.value = value;
+        if (isLong) {
+          input.rows = 2;
+        } else {
+          input.type = 'text';
+        }
+        input.addEventListener('change', (event) => {
+          onChange(event.target.value.trim());
+        });
+        return input;
+      }
+
+      function createImagePreview(value) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'admin-image-preview';
+        if (!value) {
+          wrapper.textContent = 'No image';
+          return wrapper;
+        }
+        const img = document.createElement('img');
+        img.src = value;
+        img.alt = 'Preview';
+        img.loading = 'lazy';
+        img.onerror = () => {
+          wrapper.textContent = 'Invalid URL';
+          img.remove();
+        };
+        wrapper.appendChild(img);
+        return wrapper;
+      }
+
+      function isImageField(field) {
+        return field.includes('image') || field.includes('cover');
+      }
+
+      function updateCell(sheetName, rowIndex, header, value) {
+        const sheet = state.sheets[sheetName];
+        sheet.rows[rowIndex][header] = value;
+        const lowerHeader = header.toLowerCase();
+        if ((lowerHeader === 'name' || lowerHeader === 'title') && sheet.headers.includes('slug')) {
+          const slugValue = sheet.rows[rowIndex]['slug'];
+          if (!slugValue) {
+            sheet.rows[rowIndex]['slug'] = slugify(value);
+          }
+        }
+        renderAll();
+      }
+
+      function addRow(sheetName) {
+        const sheet = state.sheets[sheetName];
+        const newRow = {};
+        sheet.headers.forEach(header => {
+          newRow[header] = '';
+        });
+        sheet.rows.push(newRow);
+        renderAll();
+      }
+
+      function deleteRow(sheetName, rowIndex) {
+        const sheet = state.sheets[sheetName];
+        if (!confirm('Delete this entry?')) return;
+        sheet.rows.splice(rowIndex, 1);
+        renderAll();
+      }
+
+      function moveRow(sheetName, rowIndex, delta) {
+        const sheet = state.sheets[sheetName];
+        const newIndex = rowIndex + delta;
+        if (newIndex < 0 || newIndex >= sheet.rows.length) return;
+        const [row] = sheet.rows.splice(rowIndex, 1);
+        sheet.rows.splice(newIndex, 0, row);
+        renderAll();
+      }
+
+      function applyMissingColumns(sheetName) {
+        const sheet = state.sheets[sheetName];
+        if (!sheet.missing.length) return;
+        sheet.missing.forEach(column => {
+          sheet.headers.push(column);
+          sheet.rows.forEach(row => {
+            row[column] = '';
+          });
+        });
+        sheet.missing = [];
+        renderAll();
+      }
+
+      function validateRow(sheetName, row) {
+        const errors = [];
+        const schema = SCHEMAS[sheetName];
+        schema.required.forEach(field => {
+          if (!row[field]) {
+            errors.push(`${field} is required.`);
+          }
+        });
+        if (row.slug && !/^[a-z0-9-]+$/.test(row.slug)) {
+          errors.push('Slug should be lowercase and use dashes only.');
+        }
+        const urlFields = ['image', 'cover', 'url'];
+        urlFields.forEach(field => {
+          if (row[field] && !isValidUrl(row[field])) {
+            errors.push(`${field} must be a valid URL.`);
+          }
+        });
+        return errors;
+      }
+
+      function isValidUrl(value) {
+        try {
+          new URL(value, window.location.href);
+          return true;
+        } catch (err) {
+          return false;
+        }
+      }
+
+      function renderPreview(tabName, rows) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'admin-preview';
+        if (tabName === 'Researchers') {
+          const grid = document.createElement('div');
+          grid.className = 'researcher-grid';
+          rows.forEach(row => {
+            const card = document.createElement('article');
+            card.className = 'researcher-card';
+            const link = document.createElement('div');
+            link.className = 'researcher-link';
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            if (row.image) {
+              const img = document.createElement('img');
+              img.src = row.image;
+              img.alt = row.name || 'Researcher';
+              img.onerror = () => img.remove();
+              avatar.appendChild(img);
+            } else {
+              avatar.textContent = row.name ? row.name.split(' ').map(word => word[0]).join('').slice(0, 2).toUpperCase() : 'R';
+            }
+            const body = document.createElement('div');
+            body.className = 'researcher-body';
+            const name = document.createElement('h3');
+            name.textContent = row.name || 'Researcher';
+            const title = document.createElement('p');
+            title.className = 'researcher-title';
+            title.textContent = row.title || '';
+            const desc = document.createElement('p');
+            desc.className = 'researcher-desc';
+            desc.textContent = row.description || '';
+            body.appendChild(name);
+            body.appendChild(title);
+            body.appendChild(desc);
+            link.appendChild(avatar);
+            link.appendChild(body);
+            card.appendChild(link);
+            grid.appendChild(card);
+          });
+          wrapper.appendChild(grid);
+        } else if (tabName === 'Projects') {
+          const grid = document.createElement('div');
+          grid.className = 'project-grid';
+          rows.forEach(row => {
+            const card = document.createElement('article');
+            card.className = 'project-card';
+            const link = document.createElement('div');
+            link.className = 'project-card-link';
+            const cover = document.createElement('div');
+            cover.className = 'project-cover';
+            if (row.cover) {
+              const img = document.createElement('img');
+              img.src = row.cover;
+              img.alt = row.title || 'Project';
+              img.onerror = () => img.remove();
+              cover.appendChild(img);
+            } else {
+              cover.textContent = row.title || 'Project';
+            }
+            const body = document.createElement('div');
+            body.className = 'project-body';
+            const title = document.createElement('h3');
+            title.textContent = row.title || 'Project';
+            const summary = document.createElement('p');
+            summary.textContent = row.summary || '';
+            body.appendChild(title);
+            body.appendChild(summary);
+            link.appendChild(cover);
+            link.appendChild(body);
+            card.appendChild(link);
+            grid.appendChild(card);
+          });
+          wrapper.appendChild(grid);
+        } else {
+          const list = document.createElement('div');
+          list.className = 'admin-preview-list';
+          rows.forEach(row => {
+            const item = document.createElement('div');
+            item.className = 'admin-preview-item';
+            const title = document.createElement('strong');
+            title.textContent = row.title || 'Publication';
+            const meta = document.createElement('p');
+            meta.className = 'muted';
+            meta.textContent = [row.authors, row.year].filter(Boolean).join(' • ');
+            const link = document.createElement('p');
+            link.className = 'muted';
+            link.textContent = row.url || '';
+            item.appendChild(title);
+            item.appendChild(meta);
+            item.appendChild(link);
+            list.appendChild(item);
+          });
+          wrapper.appendChild(list);
+        }
+        return wrapper;
+      }
+
+      function exportWorkbook() {
+        const workbook = XLSX.utils.book_new();
+        Object.keys(state.sheets).forEach(sheetName => {
+          const sheet = state.sheets[sheetName];
+          const data = [sheet.headers];
+          sheet.rows.forEach(row => {
+            data.push(sheet.headers.map(header => row[header] || ''));
+          });
+          const worksheet = XLSX.utils.aoa_to_sheet(data);
+          XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+        });
+        const stamp = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(workbook, `site-content-${stamp}.xlsx`);
+      }
+
+      document.querySelectorAll('.admin-tab').forEach(button => {
+        button.addEventListener('click', () => {
+          state.activeTab = button.dataset.tab;
+          renderAll();
+        });
+      });
+
+      document.getElementById('reload-btn').addEventListener('click', () => {
+        loadWorkbook();
+      });
+
+      exportBtn.addEventListener('click', () => {
+        exportWorkbook();
+      });
+
+      previewToggle.addEventListener('change', (event) => {
+        state.previewMode = event.target.checked;
+        renderContent();
+      });
+
+      loadWorkbook();
+    })();
+  </script>
 </body>
 </html>
