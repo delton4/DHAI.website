@@ -47,16 +47,6 @@
         <p id="admin-status" class="muted" aria-live="polite">Loading Excel data...</p>
         <p class="muted">Edits stay in this browser until you download and upload the new Excel file to GitHub.</p>
       </section>
-      <section class="admin-card">
-        <h3>Schema Inspector</h3>
-        <div id="schema-output" class="schema-output"></div>
-      </section>
-      <section class="admin-card">
-        <h3>Formatting Tips</h3>
-        <p class="muted"><strong>Leads:</strong> Name::Title::slug separated with |</p>
-        <p class="muted"><strong>Slides:</strong> Title::Image URL::Caption separated with |</p>
-        <p class="muted"><strong>Images:</strong> Use public URLs or data URIs.</p>
-      </section>
     </aside>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -90,7 +80,6 @@
       const sourceEl = document.getElementById('admin-source');
       const exportBtn = document.getElementById('export-btn');
       const previewToggle = document.getElementById('preview-toggle');
-      const schemaOutput = document.getElementById('schema-output');
 
       function setStatus(message, tone) {
         statusEl.textContent = message;
@@ -172,7 +161,6 @@
 
       function renderAll() {
         renderTabs();
-        renderSchemaInspector();
         renderContent();
       }
 
@@ -181,42 +169,6 @@
           const isActive = button.dataset.tab === state.activeTab;
           button.classList.toggle('active', isActive);
           button.setAttribute('aria-selected', isActive ? 'true' : 'false');
-        });
-      }
-
-      function renderSchemaInspector() {
-        schemaOutput.innerHTML = '';
-        Object.keys(SCHEMAS).forEach(sheetName => {
-          const meta = state.sheets[sheetName];
-          const schema = SCHEMAS[sheetName];
-          const wrapper = document.createElement('div');
-          wrapper.className = 'schema-card';
-          const title = document.createElement('h4');
-          title.textContent = sheetName;
-          const expected = document.createElement('p');
-          expected.className = 'muted';
-          expected.textContent = `Expected: ${schema.columns.join(', ')}`;
-          const missing = document.createElement('p');
-          missing.className = meta.missing.length ? 'schema-warning' : 'muted';
-          missing.textContent = meta.missing.length ? `Missing: ${meta.missing.join(', ')}` : 'Missing: none';
-          const extra = document.createElement('p');
-          extra.className = meta.extra.length ? 'schema-note' : 'muted';
-          extra.textContent = meta.extra.length ? `Extra: ${meta.extra.join(', ')}` : 'Extra: none';
-          wrapper.appendChild(title);
-          wrapper.appendChild(expected);
-          wrapper.appendChild(missing);
-          wrapper.appendChild(extra);
-          if (meta.missing.length) {
-            const addBtn = document.createElement('button');
-            addBtn.type = 'button';
-            addBtn.className = 'admin-button small';
-            addBtn.textContent = 'Add missing columns';
-            addBtn.addEventListener('click', () => {
-              applyMissingColumns(sheetName);
-            });
-            wrapper.appendChild(addBtn);
-          }
-          schemaOutput.appendChild(wrapper);
         });
       }
 
@@ -240,14 +192,15 @@
 
         adminContent.appendChild(controls);
 
-        if (state.previewMode) {
-          adminContent.appendChild(renderPreview(state.activeTab, sheet.rows));
-        } else {
-          adminContent.appendChild(renderTable(state.activeTab, sheet));
-        }
+        const contentNode = state.previewMode
+          ? renderPreview(state.activeTab, sheet.rows)
+          : renderTable(state.activeTab, sheet);
+        adminContent.appendChild(contentNode);
       }
 
       function renderTable(sheetName, sheet) {
+        const wrap = document.createElement('div');
+        wrap.className = 'admin-table-wrap';
         const table = document.createElement('table');
         table.className = 'admin-table';
 
@@ -271,7 +224,7 @@
             const td = document.createElement('td');
             const field = header.toLowerCase();
             const value = row[header] || '';
-            const input = createFieldInput(field, value, (nextValue) => {
+            const input = createFieldInput(sheetName, field, value, (nextValue) => {
               updateCell(sheetName, rowIndex, header, nextValue);
             });
             td.appendChild(input);
@@ -320,18 +273,29 @@
           }
         });
         table.appendChild(tbody);
-        return table;
+        wrap.appendChild(table);
+        return wrap;
       }
 
-      function createFieldInput(field, value, onChange) {
+      function createFieldInput(sheetName, field, value, onChange) {
+        if (sheetName === 'Projects' && field === 'leads') {
+          return createLeadsSelect(value, onChange);
+        }
         const isLong = ['description', 'summary', 'details', 'slides', 'leads'].includes(field);
         const input = isLong ? document.createElement('textarea') : document.createElement('input');
         input.value = value;
         if (isLong) {
-          input.rows = 2;
+          input.rows = 4;
         } else {
-          input.type = 'text';
+          input.type = getInputType(field);
         }
+        if (isRequired(sheetName, field)) {
+          input.required = true;
+        }
+        if (field === 'slug') {
+          input.pattern = '[a-z0-9-]+';
+        }
+        applyValidation(input, field);
         input.addEventListener('change', (event) => {
           onChange(event.target.value.trim());
         });
@@ -359,6 +323,68 @@
 
       function isImageField(field) {
         return field.includes('image') || field.includes('cover');
+      }
+
+      function getInputType(field) {
+        if (field === 'year') return 'number';
+        if (field === 'url' || field === 'image' || field === 'cover') return 'url';
+        return 'text';
+      }
+
+      function isRequired(sheetName, field) {
+        const schema = SCHEMAS[sheetName];
+        return schema && schema.required.includes(field);
+      }
+
+      function applyValidation(input, field) {
+        const updateValidity = () => {
+          const isValid = input.checkValidity();
+          input.classList.toggle('is-invalid', !isValid);
+        };
+        input.addEventListener('input', updateValidity);
+        updateValidity();
+      }
+
+      function createLeadsSelect(value, onChange) {
+        const select = document.createElement('select');
+        select.className = 'admin-multiselect';
+        select.multiple = true;
+        select.size = 4;
+        const researchers = state.sheets.Researchers ? state.sheets.Researchers.rows : [];
+        const selected = parseLeads(value);
+        researchers.forEach(researcher => {
+          const slug = researcher.slug || slugify(researcher.name);
+          const option = document.createElement('option');
+          option.value = slug;
+          option.textContent = researcher.title
+            ? `${researcher.name} — ${researcher.title}`
+            : researcher.name;
+          option.selected = selected.includes(slug);
+          select.appendChild(option);
+        });
+        select.addEventListener('change', () => {
+          const selectedSlugs = Array.from(select.selectedOptions).map(option => option.value);
+          const nextValue = selectedSlugs.map(slug => buildLeadEntry(slug)).filter(Boolean).join('|');
+          onChange(nextValue);
+        });
+        return select;
+      }
+
+      function parseLeads(value) {
+        return String(value || '')
+          .split('|')
+          .map(entry => entry.trim())
+          .filter(Boolean)
+          .map(entry => entry.split('::').map(part => part.trim()))
+          .map(parts => parts[2] || slugify(parts[0] || ''))
+          .filter(Boolean);
+      }
+
+      function buildLeadEntry(slug) {
+        const researchers = state.sheets.Researchers ? state.sheets.Researchers.rows : [];
+        const match = researchers.find(researcher => (researcher.slug || slugify(researcher.name)) === slug);
+        if (!match) return '';
+        return `${match.name}::${match.title || ''}::${slug}`;
       }
 
       function updateCell(sheetName, rowIndex, header, value) {
@@ -400,19 +426,6 @@
         renderAll();
       }
 
-      function applyMissingColumns(sheetName) {
-        const sheet = state.sheets[sheetName];
-        if (!sheet.missing.length) return;
-        sheet.missing.forEach(column => {
-          sheet.headers.push(column);
-          sheet.rows.forEach(row => {
-            row[column] = '';
-          });
-        });
-        sheet.missing = [];
-        renderAll();
-      }
-
       function validateRow(sheetName, row) {
         const errors = [];
         const schema = SCHEMAS[sheetName];
@@ -423,6 +436,9 @@
         });
         if (row.slug && !/^[a-z0-9-]+$/.test(row.slug)) {
           errors.push('Slug should be lowercase and use dashes only.');
+        }
+        if (row.year && !/^[0-9]{4}$/.test(String(row.year))) {
+          errors.push('year must be a 4-digit number.');
         }
         const urlFields = ['image', 'cover', 'url'];
         urlFields.forEach(field => {
