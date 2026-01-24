@@ -41,13 +41,6 @@
       </div>
       <div id="admin-content" class="admin-content"></div>
     </section>
-    <aside class="admin-sidebar">
-      <section class="admin-card">
-        <h3>Status</h3>
-        <p id="admin-status" class="muted" aria-live="polite">Loading Excel data...</p>
-        <p class="muted">Edits stay in this browser until you download and upload the new Excel file to GitHub.</p>
-      </section>
-    </aside>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script>
@@ -76,14 +69,13 @@
       };
 
       const adminContent = document.getElementById('admin-content');
-      const statusEl = document.getElementById('admin-status');
       const sourceEl = document.getElementById('admin-source');
       const exportBtn = document.getElementById('export-btn');
       const previewToggle = document.getElementById('preview-toggle');
 
       function setStatus(message, tone) {
-        statusEl.textContent = message;
-        statusEl.className = `muted ${tone ? `status-${tone}` : ''}`.trim();
+        sourceEl.textContent = `Source: ${state.sourceUrl} • ${message}`;
+        sourceEl.className = `muted ${tone ? `status-${tone}` : ''}`.trim();
       }
 
       function slugify(value) {
@@ -128,7 +120,6 @@
       function loadWorkbook() {
         const url = getExcelUrl();
         state.sourceUrl = url;
-        sourceEl.textContent = `Source: ${url}`;
         setStatus('Loading Excel data...', 'loading');
         exportBtn.disabled = true;
 

@@ -570,13 +570,10 @@ strong {
 }
 
 .admin-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
-  gap: 24px;
+  display: block;
 }
 
-.admin-primary,
-.admin-sidebar {
+.admin-primary {
   display: grid;
   gap: 18px;
 }
@@ -821,9 +818,6 @@ strong {
 }
 
 @media (max-width: 980px) {
-  .admin-layout {
-    grid-template-columns: 1fr;
-  }
   .admin-controls {
     justify-content: flex-start;
   }
