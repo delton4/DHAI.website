@@ -133,6 +133,17 @@
     }).filter(slide => slide.title);
   }
 
+  function parsePresentations(value) {
+    return splitList(value).map(entry => {
+      const parts = entry.split('::').map(part => part.trim());
+      return {
+        title: parts[0] || '',
+        file: parts[1] || '',
+        preview: parts[2] || ''
+      };
+    }).filter(item => item.title || item.file || item.preview);
+  }
+
   function getResearchers() {
     return getSheetRows('Researchers').then(rows => rows.map(row => {
       const name = pick(row, ['name', 'full name', 'full_name']);
@@ -149,16 +160,51 @@
   function getProjects() {
     return getSheetRows('Projects').then(rows => rows.map(row => {
       const title = pick(row, ['title']);
+      const presentations = parsePresentations(pick(row, ['presentations', 'presentation_list']));
+      const slides = parseSlides(pick(row, ['slides', 'slide_list']));
+      const previewCover = presentations[0]?.preview || slides[0]?.image || '';
       return {
         slug: pick(row, ['slug']) || toSlug(title),
         title,
         summary: pick(row, ['summary', 'description']),
-        cover: pick(row, ['cover', 'cover_image', 'image', 'image_url']),
+        cover: pick(row, ['cover', 'cover_image', 'image', 'image_url']) || previewCover,
         leads: parseLeads(pick(row, ['leads', 'team'])),
         details: splitList(pick(row, ['details', 'highlights'])),
-        slides: parseSlides(pick(row, ['slides', 'slide_list']))
+        presentations,
+        slides
       };
     }).filter(item => item.title));
+  }
+
+  function getPublications() {
+    return getSheetRows('Publications').then(rows => rows.map(row => {
+      return {
+        slug: pick(row, ['slug']) || toSlug(pick(row, ['title'])),
+        title: pick(row, ['title']),
+        url: pick(row, ['url', 'link']),
+        authors: pick(row, ['authors']),
+        year: pick(row, ['year']),
+        project: pick(row, ['project']),
+        researchers: splitList(pick(row, ['researchers']))
+      };
+    }).filter(item => item.title));
+  }
+
+  function getPublicationsWithResearchers() {
+    return Promise.all([getPublications(), getResearchers()]).then(([publications, researchers]) => {
+      const researcherMap = new Map(researchers.map(researcher => [researcher.slug, researcher]));
+      return publications.map(publication => ({
+        ...publication,
+        researcherNames: (publication.researchers || []).map(slug => researcherMap.get(slug)?.name || slug)
+      }));
+    });
+  }
+
+  function getPublicationsForProject(projectSlug) {
+    if (!projectSlug) return Promise.resolve([]);
+    return getPublicationsWithResearchers().then(publications =>
+      publications.filter(publication => publication.project === projectSlug)
+    );
   }
 
   function getProjectsForResearcher(slug) {
@@ -177,6 +223,9 @@
     getProjects,
     getProjectsForResearcher,
     getProjectBySlug,
+    getPublications,
+    getPublicationsWithResearchers,
+    getPublicationsForProject,
     toSlug
   };
 })();

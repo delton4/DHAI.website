@@ -10,6 +10,7 @@ The Excel file is parsed in the browser using the SheetJS (`xlsx`) library loade
 - `data.js` - Excel loader and parsing helpers.
 - `data.xlsx` - primary data source.
   - Includes sample rows with placeholder image URLs. Replace with your own URLs or data URIs.
+- `presentations/` - optional folder for PPTX files referenced in the `presentations` column.
 
 ## GitHub Pages Hosting
 1) Create a GitHub repo and add these files to the repo root.  
@@ -23,7 +24,7 @@ Optional overrides:
 - Add `<meta name="data-xlsx" content="data.xlsx">` to point at a custom Excel URL.
 
 ## Excel Schema
-Create `data.xlsx` with two sheets:
+Create `data.xlsx` with three sheets:
 
 ### Researchers (sheet name: `Researchers`)
 Headers:
@@ -38,13 +39,23 @@ Headers:
 - `slug` (optional; auto-generated from title if omitted)
 - `title`
 - `summary`
-- `cover` (URL to the project cover image)
+- `cover` (auto-set from the first presentation preview)
 - `leads` (pipe-delimited list)
 - `details` (pipe-delimited list)
-- `slides` (pipe-delimited list)
+- `presentations` (pipe-delimited list of PPTX entries)
+
+### Publications (sheet name: `Publications`)
+Headers:
+- `slug` (optional; auto-generated from title if omitted)
+- `title`
+- `url`
+- `authors`
+- `year`
+- `project` (project slug)
+- `researchers` (pipe-delimited researcher slugs)
 
 Formatting rules:
 - Use `|` to separate list items.
-- Use `::` inside `leads` and `slides` entries.
+- Use `::` inside `leads` and `presentations` entries.
   - Leads example: `Diego::Senior AI Engineer::diego|Theofilos::Principal Investigator`
-  - Slides example: `Slide Title::https://example.com/slide1.png::Optional caption|Another Slide::https://example.com/slide2.png`
+  - Presentations example: `Intro Deck::predict-overview.pptx::data:image/jpeg;base64,...|Q2 Update::predict-update.pptx::data:image/jpeg;base64,...`

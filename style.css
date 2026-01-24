@@ -533,11 +533,92 @@ strong {
   color: var(--text-muted);
 }
 
-.slides-grid {
+.slides-grid,
+.presentations-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
   margin-top: 12px;
+}
+
+.presentation-card {
+  border: 1px solid rgba(0, 58, 112, 0.08);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 32px rgba(0, 58, 112, 0.12);
+}
+
+.presentation-link {
+  display: grid;
+  grid-template-rows: 150px 1fr;
+  text-decoration: none;
+  color: inherit;
+  height: 100%;
+}
+
+.presentation-link::after {
+  display: none;
+}
+
+.presentation-preview {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(120deg, rgba(0, 103, 177, 0.12), rgba(139, 197, 64, 0.12));
+  color: var(--northwell-navy);
+  font-weight: 600;
+  text-align: center;
+  padding: 12px;
+}
+
+.presentation-preview img {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.presentation-body {
+  padding: 12px 14px 14px;
+}
+
+.presentation-body h4 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: var(--northwell-navy);
+}
+
+.presentation-body p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.presentation-download {
+  display: block;
+}
+
+.presentation-download::after {
+  display: none;
+}
+
+.publications-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.publication-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 58, 112, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 32px rgba(0, 58, 112, 0.1);
+}
+
+.publication-card h3,
+.publication-card h4 {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  color: var(--northwell-navy);
 }
 
 .slide-card {
@@ -696,6 +777,10 @@ strong {
   min-width: 160px;
 }
 
+.admin-table td[data-field="presentations"] {
+  min-width: 380px;
+}
+
 .admin-table th {
   background: rgba(0, 103, 177, 0.08);
   color: var(--northwell-navy);
@@ -716,9 +801,40 @@ strong {
   background: #ffffff;
 }
 
+.admin-table input.readonly,
+.admin-table textarea.readonly {
+  background: rgba(0, 58, 112, 0.04);
+  color: var(--text-muted);
+}
+
 .admin-table textarea {
   resize: vertical;
   min-height: 140px;
+}
+
+.admin-leads-select {
+  display: grid;
+  gap: 8px;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 58, 112, 0.22);
+  background: #ffffff;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.admin-checkbox {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  cursor: pointer;
+  color: var(--text-primary);
+}
+
+.admin-checkbox input {
+  margin-top: 2px;
 }
 
 .admin-table input[type="number"] {
@@ -736,6 +852,81 @@ strong {
   min-height: 140px;
 }
 
+.admin-select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 58, 112, 0.22);
+  padding: 10px 12px;
+  font-size: 1rem;
+  background: #ffffff;
+}
+
+.admin-presentations {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-pptx-card {
+  border-radius: 16px;
+  border: 1px solid rgba(0, 58, 112, 0.14);
+  background: rgba(255, 255, 255, 0.96);
+  padding: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.admin-pptx-header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.admin-pptx-header input {
+  flex: 1 1 220px;
+}
+
+.admin-pptx-row {
+  display: grid;
+  gap: 6px;
+}
+
+.admin-file-label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--northwell-navy);
+}
+
+.admin-file-label input[type="file"] {
+  padding: 6px 0;
+  border: none;
+}
+
+.admin-pptx-preview {
+  min-height: 140px;
+  border-radius: 12px;
+  border: 1px dashed rgba(0, 58, 112, 0.2);
+  background: rgba(0, 103, 177, 0.06);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 10px;
+  color: var(--text-muted);
+}
+
+.admin-pptx-preview img {
+  max-width: 100%;
+  border-radius: 10px;
+  object-fit: contain;
+}
+
+.admin-pptx-meta,
+.admin-pptx-note {
+  margin: 0;
+  font-size: 0.9rem;
+}
 .admin-row-actions {
   display: flex;
   flex-direction: column;

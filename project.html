@@ -28,9 +28,13 @@
         <div id="project-details" class="project-details-list"></div>
       </div>
     </section>
-    <section id="project-slides">
-      <h3>Slides</h3>
-      <div id="slides-grid" class="slides-grid"></div>
+    <section id="project-presentations">
+      <h3>Presentations</h3>
+      <div id="presentations-grid" class="presentations-grid"></div>
+    </section>
+    <section id="project-publications">
+      <h3>Related Publications</h3>
+      <div id="project-publications-list" class="publications-list"></div>
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -41,7 +45,15 @@
       const slug = params.get('slug');
       const heroEl = document.getElementById('project-hero-image');
 
-      function setHero(project) {
+      function resolvePresentationUrl(file) {
+        if (!file) return '';
+        if (/^(https?:)?\\/\\//.test(file) || file.startsWith('data:') || file.startsWith('/')) {
+          return file;
+        }
+        return `presentations/${encodeURIComponent(file)}`;
+      }
+
+      function setHero(project, presentationLink) {
         heroEl.innerHTML = '';
         heroEl.classList.remove('project-cover-placeholder');
         if (project.cover) {
@@ -53,7 +65,15 @@
             heroEl.textContent = project.title || 'Project Overview';
             heroEl.classList.add('project-cover-placeholder');
           };
-          heroEl.appendChild(img);
+          if (presentationLink) {
+            const link = document.createElement('a');
+            link.href = presentationLink;
+            link.className = 'presentation-download';
+            link.appendChild(img);
+            heroEl.appendChild(link);
+          } else {
+            heroEl.appendChild(img);
+          }
         } else {
           heroEl.textContent = project.title || 'Project Overview';
           heroEl.classList.add('project-cover-placeholder');
@@ -72,7 +92,9 @@
           document.getElementById('project-title').textContent = project.title || 'Project';
           document.getElementById('project-name').textContent = project.title || 'Project';
           document.getElementById('project-summary').textContent = project.summary || '';
-          setHero(project);
+          const primaryPresentation = (project.presentations || [])[0];
+          const presentationLink = primaryPresentation ? resolvePresentationUrl(primaryPresentation.file) : '';
+          setHero(project, presentationLink);
 
           const leadsEl = document.getElementById('project-leads');
           leadsEl.innerHTML = '';
@@ -92,35 +114,90 @@
             detailEl.appendChild(row);
           });
 
-          const slidesGrid = document.getElementById('slides-grid');
-          slidesGrid.innerHTML = '';
-          if (!project.slides || !project.slides.length) {
-            slidesGrid.innerHTML = '<p class="muted">Slides will appear here when available.</p>';
-            return;
+          const presentationsGrid = document.getElementById('presentations-grid');
+          presentationsGrid.innerHTML = '';
+          if (!project.presentations || !project.presentations.length) {
+            presentationsGrid.innerHTML = '<p class="muted">Presentations are being prepared. Check back soon.</p>';
+          } else {
+            project.presentations.forEach(presentation => {
+              const card = document.createElement('article');
+              card.className = 'presentation-card';
+              const link = document.createElement('a');
+              link.className = 'presentation-link';
+              const downloadUrl = resolvePresentationUrl(presentation.file);
+              if (downloadUrl) {
+                link.href = downloadUrl;
+                link.target = '_blank';
+                link.rel = 'noreferrer';
+              }
+              const preview = document.createElement('div');
+              preview.className = 'presentation-preview';
+              if (presentation.preview) {
+                const img = document.createElement('img');
+                img.src = presentation.preview;
+                img.alt = presentation.title || 'Presentation preview';
+                img.onerror = () => img.remove();
+                preview.appendChild(img);
+              } else {
+                preview.textContent = 'Preview coming soon';
+              }
+              const body = document.createElement('div');
+              body.className = 'presentation-body';
+              const title = document.createElement('h4');
+              title.textContent = presentation.title || 'Presentation';
+              const caption = document.createElement('p');
+              caption.className = 'muted';
+              caption.textContent = downloadUrl ? 'Download PPTX' : 'PPTX file pending';
+              body.appendChild(title);
+              body.appendChild(caption);
+              link.appendChild(preview);
+              link.appendChild(body);
+              card.appendChild(link);
+              presentationsGrid.appendChild(card);
+            });
           }
 
-          project.slides.forEach(slide => {
-            const card = document.createElement('article');
-            card.className = 'slide-card';
-            if (slide.image) {
-              const img = document.createElement('img');
-              img.src = slide.image;
-              img.alt = slide.title || 'Slide';
-              img.onerror = () => img.remove();
-              card.appendChild(img);
-            }
-            const body = document.createElement('div');
-            body.className = 'slide-body';
-            const title = document.createElement('h4');
-            title.textContent = slide.title || 'Slide';
-            const caption = document.createElement('p');
-            caption.className = 'muted';
-            caption.textContent = slide.caption || '';
-            body.appendChild(title);
-            body.appendChild(caption);
-            card.appendChild(body);
-            slidesGrid.appendChild(card);
-          });
+          const publicationsList = document.getElementById('project-publications-list');
+          publicationsList.innerHTML = '';
+          SiteData.getPublicationsForProject(project.slug)
+            .then(publications => {
+              if (!publications.length) {
+                publicationsList.innerHTML = '<p class="muted">We are polishing the write-up now. Publication coming soon.</p>';
+                return;
+              }
+              publications.forEach(publication => {
+                const card = document.createElement('article');
+                card.className = 'publication-card';
+                const title = document.createElement('h4');
+                if (publication.url) {
+                  const link = document.createElement('a');
+                  link.href = publication.url;
+                  link.textContent = publication.title || 'Publication';
+                  link.target = '_blank';
+                  link.rel = 'noreferrer';
+                  title.appendChild(link);
+                } else {
+                  title.textContent = publication.title || 'Publication';
+                }
+                const meta = document.createElement('p');
+                meta.className = 'muted';
+                const parts = [];
+                if (publication.researcherNames && publication.researcherNames.length) {
+                  parts.push(publication.researcherNames.join(', '));
+                }
+                if (publication.year) {
+                  parts.push(publication.year);
+                }
+                meta.textContent = parts.join(' • ') || 'Details coming soon.';
+                card.appendChild(title);
+                card.appendChild(meta);
+                publicationsList.appendChild(card);
+              });
+            })
+            .catch(err => {
+              console.error('Failed to load publications:', err);
+              publicationsList.innerHTML = '<p class="muted">Unable to load publications. Check the Excel file.</p>';
+            });
         })
         .catch(err => {
           console.error('Failed to load project:', err);

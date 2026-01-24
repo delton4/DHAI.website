@@ -43,6 +43,7 @@
     </section>
   </main>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script>
     (function initAdmin() {
       const SCHEMAS = {
@@ -51,11 +52,11 @@
           required: ['name']
         },
         Projects: {
-          columns: ['slug', 'title', 'summary', 'cover', 'leads', 'details', 'slides'],
+          columns: ['slug', 'title', 'summary', 'cover', 'leads', 'details', 'presentations'],
           required: ['title']
         },
         Publications: {
-          columns: ['title', 'url', 'authors', 'year'],
+          columns: ['slug', 'title', 'url', 'authors', 'year', 'project', 'researchers'],
           required: ['title']
         }
       };
@@ -139,6 +140,16 @@
             Object.keys(SCHEMAS).forEach(sheetName => {
               state.sheets[sheetName] = parseSheet(sheetName, workbook);
             });
+            if (state.sheets.Projects) {
+              state.sheets.Projects.rows.forEach(row => {
+                if (!row.cover && row.presentations) {
+                  const presentations = parsePresentations(row.presentations);
+                  if (presentations[0]?.preview) {
+                    row.cover = presentations[0].preview;
+                  }
+                }
+              });
+            }
             setStatus('Excel loaded. You can edit and export.', 'success');
             exportBtn.disabled = false;
             renderAll();
@@ -215,7 +226,7 @@
             const td = document.createElement('td');
             const field = header.toLowerCase();
             const value = row[header] || '';
-            const input = createFieldInput(sheetName, field, value, (nextValue) => {
+            const input = createFieldInput(sheetName, field, value, rowIndex, row, (nextValue) => {
               updateCell(sheetName, rowIndex, header, nextValue);
             });
             td.appendChild(input);
@@ -223,6 +234,7 @@
               const preview = createImagePreview(value);
               td.appendChild(preview);
             }
+            td.dataset.field = field;
             tr.appendChild(td);
           });
           const actionsTd = document.createElement('td');
@@ -268,11 +280,28 @@
         return wrap;
       }
 
-      function createFieldInput(sheetName, field, value, onChange) {
+      function createFieldInput(sheetName, field, value, rowIndex, row, onChange) {
         if (sheetName === 'Projects' && field === 'leads') {
           return createLeadsSelect(value, onChange);
         }
-        const isLong = ['description', 'summary', 'details', 'slides', 'leads'].includes(field);
+        if (sheetName === 'Projects' && field === 'presentations') {
+          return createPresentationsEditor(sheetName, rowIndex, value);
+        }
+        if (sheetName === 'Projects' && field === 'cover') {
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = value;
+          input.readOnly = true;
+          input.className = 'readonly';
+          return input;
+        }
+        if (sheetName === 'Publications' && field === 'project') {
+          return createProjectSelect(value, onChange);
+        }
+        if (sheetName === 'Publications' && field === 'researchers') {
+          return createPublicationResearchersSelect(value, rowIndex, onChange);
+        }
+        const isLong = ['description', 'summary', 'details', 'slides', 'leads', 'presentations', 'authors'].includes(field);
         const input = isLong ? document.createElement('textarea') : document.createElement('input');
         input.value = value;
         if (isLong) {
@@ -285,6 +314,12 @@
         }
         if (field === 'slug') {
           input.pattern = '[a-z0-9-]+';
+          input.readOnly = true;
+          input.classList.add('readonly');
+        }
+        if (sheetName === 'Publications' && field === 'authors') {
+          input.readOnly = true;
+          input.classList.add('readonly');
         }
         applyValidation(input, field);
         input.addEventListener('change', (event) => {
@@ -337,28 +372,115 @@
       }
 
       function createLeadsSelect(value, onChange) {
-        const select = document.createElement('select');
-        select.className = 'admin-multiselect';
-        select.multiple = true;
-        select.size = 4;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'admin-leads-select';
         const researchers = state.sheets.Researchers ? state.sheets.Researchers.rows : [];
         const selected = parseLeads(value);
-        researchers.forEach(researcher => {
+        if (!researchers.length) {
+          const empty = document.createElement('p');
+          empty.className = 'muted';
+          empty.textContent = 'No researchers available.';
+          wrapper.appendChild(empty);
+          return wrapper;
+        }
+        researchers.forEach((researcher, index) => {
           const slug = researcher.slug || slugify(researcher.name);
-          const option = document.createElement('option');
-          option.value = slug;
-          option.textContent = researcher.title
+          const label = document.createElement('label');
+          label.className = 'admin-checkbox';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = slug;
+          checkbox.checked = selected.includes(slug);
+          checkbox.id = `lead-${slug}-${index}`;
+          const text = document.createElement('span');
+          text.textContent = researcher.title
             ? `${researcher.name} — ${researcher.title}`
             : researcher.name;
-          option.selected = selected.includes(slug);
-          select.appendChild(option);
+          label.appendChild(checkbox);
+          label.appendChild(text);
+          wrapper.appendChild(label);
         });
-        select.addEventListener('change', () => {
-          const selectedSlugs = Array.from(select.selectedOptions).map(option => option.value);
+        wrapper.addEventListener('change', () => {
+          const selectedSlugs = Array.from(wrapper.querySelectorAll('input[type=\"checkbox\"]:checked'))
+            .map(input => input.value);
           const nextValue = selectedSlugs.map(slug => buildLeadEntry(slug)).filter(Boolean).join('|');
           onChange(nextValue);
         });
+        return wrapper;
+      }
+
+      function createProjectSelect(value, onChange) {
+        const select = document.createElement('select');
+        select.className = 'admin-select';
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = 'No linked project';
+        select.appendChild(emptyOption);
+        const projects = state.sheets.Projects ? state.sheets.Projects.rows : [];
+        projects.forEach(project => {
+          const slug = project.slug || slugify(project.title);
+          const option = document.createElement('option');
+          option.value = slug;
+          option.textContent = project.title || slug;
+          if (slug === value) option.selected = true;
+          select.appendChild(option);
+        });
+        select.addEventListener('change', () => {
+          onChange(select.value);
+        });
         return select;
+      }
+
+      function createPublicationResearchersSelect(value, rowIndex, onChange) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'admin-leads-select';
+        const researchers = state.sheets.Researchers ? state.sheets.Researchers.rows : [];
+        const selected = splitList(value);
+        if (!researchers.length) {
+          const empty = document.createElement('p');
+          empty.className = 'muted';
+          empty.textContent = 'No researchers available.';
+          wrapper.appendChild(empty);
+          return wrapper;
+        }
+        researchers.forEach((researcher, index) => {
+          const slug = researcher.slug || slugify(researcher.name);
+          const label = document.createElement('label');
+          label.className = 'admin-checkbox';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.value = slug;
+          checkbox.checked = selected.includes(slug);
+          checkbox.id = `pub-${slug}-${index}`;
+          const text = document.createElement('span');
+          text.textContent = researcher.title
+            ? `${researcher.name} — ${researcher.title}`
+            : researcher.name;
+          label.appendChild(checkbox);
+          label.appendChild(text);
+          wrapper.appendChild(label);
+        });
+        wrapper.addEventListener('change', () => {
+          const selectedSlugs = Array.from(wrapper.querySelectorAll('input[type=\"checkbox\"]:checked'))
+            .map(input => input.value);
+          onChange(selectedSlugs.join('|'));
+          updatePublicationAuthors(rowIndex, selectedSlugs);
+        });
+        return wrapper;
+      }
+
+      function updatePublicationAuthors(rowIndex, selectedSlugs) {
+        const sheet = state.sheets.Publications;
+        if (!sheet) return;
+        const researcherMap = new Map((state.sheets.Researchers?.rows || [])
+          .map(researcher => [researcher.slug || slugify(researcher.name), researcher]));
+        const names = selectedSlugs
+          .map(slug => researcherMap.get(slug)?.name)
+          .filter(Boolean);
+        if (sheet.headers.includes('authors')) {
+          sheet.rows[rowIndex]['authors'] = names.join(', ');
+          renderAll();
+        }
       }
 
       function parseLeads(value) {
@@ -385,7 +507,7 @@
         if ((lowerHeader === 'name' || lowerHeader === 'title') && sheet.headers.includes('slug')) {
           const slugValue = sheet.rows[rowIndex]['slug'];
           if (!slugValue) {
-            sheet.rows[rowIndex]['slug'] = slugify(value);
+            sheet.rows[rowIndex]['slug'] = generateUniqueSlug(sheetName, value);
           }
         }
         renderAll();
@@ -437,7 +559,215 @@
             errors.push(`${field} must be a valid URL.`);
           }
         });
+        if (sheetName === 'Projects') {
+          const presentations = parsePresentations(row.presentations || '');
+          if (!presentations.length) {
+            errors.push('presentations must include at least one PPTX.');
+          }
+          presentations.forEach((presentation, index) => {
+            if (!presentation.title) {
+              errors.push(`presentation ${index + 1} needs a title.`);
+            }
+            if (!presentation.file) {
+              errors.push(`presentation ${index + 1} needs a PPTX file.`);
+            }
+            if (!presentation.preview) {
+              errors.push(`presentation ${index + 1} preview is missing.`);
+            }
+          });
+        }
+        if (sheetName === 'Publications' && row.project) {
+          const projectSlugs = (state.sheets.Projects?.rows || []).map(project =>
+            project.slug || slugify(project.title)
+          );
+          if (!projectSlugs.includes(row.project)) {
+            errors.push('project must match an existing project.');
+          }
+        }
+        if (sheetName === 'Publications' && !row.researchers) {
+          errors.push('researchers must be selected.');
+        }
         return errors;
+      }
+
+      function generateUniqueSlug(sheetName, value) {
+        const base = slugify(value) || 'item';
+        const sheet = state.sheets[sheetName];
+        const existing = new Set((sheet?.rows || []).map(row => row.slug).filter(Boolean));
+        if (!existing.has(base)) return base;
+        let index = 2;
+        let next = `${base}-${index}`;
+        while (existing.has(next)) {
+          index += 1;
+          next = `${base}-${index}`;
+        }
+        return next;
+      }
+
+      function parsePresentations(value) {
+        return String(value || '')
+          .split('|')
+          .map(entry => entry.trim())
+          .filter(Boolean)
+          .map(entry => {
+            const parts = entry.split('::').map(part => part.trim());
+            return {
+              title: parts[0] || '',
+              file: parts[1] || '',
+              preview: parts[2] || ''
+            };
+          });
+      }
+
+      function serializePresentations(list) {
+        return list
+          .map(entry => `${entry.title || ''}::${entry.file || ''}::${entry.preview || ''}`)
+          .filter(entry => entry !== '::::')
+          .join('|');
+      }
+
+      function createPresentationsEditor(sheetName, rowIndex, value) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'admin-presentations';
+        let entries = parsePresentations(value);
+        if (!entries.length) {
+          entries = [{ title: '', file: '', preview: '' }];
+        }
+
+        const render = () => {
+          wrapper.innerHTML = '';
+          entries.forEach((entry, index) => {
+            const card = document.createElement('div');
+            card.className = 'admin-pptx-card';
+
+            const header = document.createElement('div');
+            header.className = 'admin-pptx-header';
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.placeholder = `Presentation ${index + 1} title`;
+            titleInput.value = entry.title;
+            titleInput.addEventListener('change', () => {
+              entry.title = titleInput.value.trim();
+              updatePresentationsRow(sheetName, rowIndex, entries);
+            });
+            header.appendChild(titleInput);
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'admin-button small danger';
+            removeBtn.textContent = 'Remove';
+            removeBtn.disabled = entries.length === 1;
+            removeBtn.addEventListener('click', () => {
+              entries = entries.filter((_, idx) => idx !== index);
+              updatePresentationsRow(sheetName, rowIndex, entries);
+            });
+            header.appendChild(removeBtn);
+
+            const fileRow = document.createElement('div');
+            fileRow.className = 'admin-pptx-row';
+
+            const fileLabel = document.createElement('label');
+            fileLabel.className = 'admin-file-label';
+            fileLabel.textContent = 'Upload PPTX (required)';
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.pptx';
+            fileInput.required = !entry.file;
+            fileInput.addEventListener('change', async () => {
+              const file = fileInput.files[0];
+              if (!file) return;
+              entry.file = file.name;
+              if (!entry.title) {
+                entry.title = file.name.replace(/\\.pptx$/i, '');
+                titleInput.value = entry.title;
+              }
+              try {
+                const preview = await extractPptxThumbnail(file);
+                entry.preview = preview;
+              } catch (err) {
+                console.error('Failed to extract PPTX preview:', err);
+                entry.preview = '';
+              }
+              updatePresentationsRow(sheetName, rowIndex, entries);
+            });
+            fileLabel.appendChild(fileInput);
+            fileRow.appendChild(fileLabel);
+
+            const fileMeta = document.createElement('p');
+            fileMeta.className = 'muted admin-pptx-meta';
+            fileMeta.textContent = entry.file ? `Current PPTX: ${entry.file}` : 'No PPTX uploaded yet.';
+            fileRow.appendChild(fileMeta);
+
+            const preview = document.createElement('div');
+            preview.className = 'admin-pptx-preview';
+            if (entry.preview) {
+              const img = document.createElement('img');
+              img.src = entry.preview;
+              img.alt = 'Slide 1 preview';
+              img.onerror = () => img.remove();
+              preview.appendChild(img);
+            } else {
+              preview.textContent = 'Slide 1 preview will appear here.';
+            }
+
+            const note = document.createElement('p');
+            note.className = 'muted admin-pptx-note';
+            note.textContent = 'Upload the PPTX file to /presentations in GitHub with the same filename.';
+
+            card.appendChild(header);
+            card.appendChild(fileRow);
+            card.appendChild(preview);
+            card.appendChild(note);
+            wrapper.appendChild(card);
+          });
+
+          const addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.className = 'admin-button';
+          addBtn.textContent = 'Add presentation';
+          addBtn.addEventListener('click', () => {
+            entries.push({ title: '', file: '', preview: '' });
+            updatePresentationsRow(sheetName, rowIndex, entries);
+          });
+          wrapper.appendChild(addBtn);
+        };
+
+        render();
+        return wrapper;
+      }
+
+      function updatePresentationsRow(sheetName, rowIndex, entries) {
+        const sheet = state.sheets[sheetName];
+        const serialized = serializePresentations(entries);
+        sheet.rows[rowIndex]['presentations'] = serialized;
+        if (sheet.headers.includes('cover')) {
+          sheet.rows[rowIndex]['cover'] = entries[0]?.preview || '';
+        }
+        renderAll();
+      }
+
+      async function extractPptxThumbnail(file) {
+        if (!window.JSZip) {
+          throw new Error('JSZip not available');
+        }
+        const buffer = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buffer);
+        const thumb = zip.file('docProps/thumbnail.jpeg')
+          || zip.file('docProps/thumbnail.jpg')
+          || zip.file('docProps/thumbnail.png');
+        if (!thumb) {
+          throw new Error('No thumbnail found in PPTX');
+        }
+        const base64 = await thumb.async('base64');
+        const mime = thumb.name.endsWith('.png') ? 'image/png' : 'image/jpeg';
+        return `data:${mime};base64,${base64}`;
+      }
+
+      function splitList(value) {
+        return String(value || '')
+          .split('|')
+          .map(item => item.trim())
+          .filter(Boolean);
       }
 
       function isValidUrl(value) {
@@ -547,7 +877,26 @@
         return wrapper;
       }
 
+      function collectValidationErrors() {
+        const errors = [];
+        Object.keys(state.sheets).forEach(sheetName => {
+          const sheet = state.sheets[sheetName];
+          sheet.rows.forEach((row, index) => {
+            const rowErrors = validateRow(sheetName, row);
+            rowErrors.forEach(error => {
+              errors.push(`${sheetName} row ${index + 1}: ${error}`);
+            });
+          });
+        });
+        return errors;
+      }
+
       function exportWorkbook() {
+        const errors = collectValidationErrors();
+        if (errors.length) {
+          alert(`Please fix these issues before exporting:\\n\\n${errors.slice(0, 8).join('\\n')}`);
+          return;
+        }
         const workbook = XLSX.utils.book_new();
         Object.keys(state.sheets).forEach(sheetName => {
           const sheet = state.sheets[sheetName];

@@ -19,9 +19,68 @@
     </nav>
   </header>
   <main>
-    <ul>
-      <li><a href="#">Sample Publication</a></li>
-    </ul>
+    <section>
+      <h2>Latest Publications</h2>
+      <p class="muted">Explore research outputs and ongoing work from the team.</p>
+      <div id="publications-list" class="publications-list" aria-live="polite"></div>
+    </section>
   </main>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="data.js"></script>
+  <script>
+    (function loadPublications() {
+      const list = document.getElementById('publications-list');
+
+      function render(publications) {
+        list.innerHTML = '';
+        publications.forEach(publication => {
+          const card = document.createElement('article');
+          card.className = 'publication-card';
+
+          const title = document.createElement('h3');
+          if (publication.url) {
+            const link = document.createElement('a');
+            link.href = publication.url;
+            link.textContent = publication.title || 'Untitled publication';
+            link.target = '_blank';
+            link.rel = 'noreferrer';
+            title.appendChild(link);
+          } else {
+            title.textContent = publication.title || 'Untitled publication';
+          }
+
+          const meta = document.createElement('p');
+          meta.className = 'muted';
+          const parts = [];
+          if (publication.researcherNames && publication.researcherNames.length) {
+            parts.push(publication.researcherNames.join(', '));
+          } else if (publication.authors) {
+            parts.push(publication.authors);
+          }
+          if (publication.year) {
+            parts.push(publication.year);
+          }
+          meta.textContent = parts.join(' • ') || 'Publication details coming soon.';
+
+          card.appendChild(title);
+          card.appendChild(meta);
+          list.appendChild(card);
+        });
+      }
+
+      SiteData.getPublicationsWithResearchers()
+        .then(publications => {
+          if (!publications.length) {
+            list.innerHTML = '<p class="muted">Publications are being curated. Check back soon.</p>';
+            return;
+          }
+          render(publications);
+        })
+        .catch(err => {
+          console.error('Failed to load publications:', err);
+          list.innerHTML = '<p class="muted">Unable to load publications. Check the Excel file.</p>';
+        });
+    })();
+  </script>
 </body>
 </html>
