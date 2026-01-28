@@ -5,12 +5,13 @@ The Excel file is parsed in the browser using the SheetJS (`xlsx`) library loade
 
 ## Structure
 - `index.html`, `researchers.html`, `researcher.html`, `projects.html`, `project.html`, `publications.html` - public pages.
-- `admin.html` - Excel schema reference (no local edits).
 - `style.css` - shared styling.
 - `data.js` - Excel loader and parsing helpers.
 - `data.xlsx` - primary data source.
   - Includes sample rows with placeholder image URLs. Replace with your own URLs or data URIs.
-- `presentations/` - optional folder for PPTX files referenced in the `presentations` column.
+- `presentations/` - PPTX files referenced in the `presentations` column.
+- `images/` - uploaded researcher photos referenced in the `image` column.
+- `local-editor/` - local-only content editor (ignored by Git; not published to GitHub Pages).
 
 ## GitHub Pages Hosting
 1) Create a GitHub repo and add these files to the repo root.  
@@ -22,6 +23,15 @@ The Excel file is parsed in the browser using the SheetJS (`xlsx`) library loade
 Optional overrides:
 - Define `window.DATA_XLSX_URL = 'https://...'` before loading `data.js`, or
 - Add `<meta name="data-xlsx" content="data.xlsx">` to point at a custom Excel URL.
+
+## Local Editor Workflow (not deployed)
+1) Open `local-editor/editor.html` locally (double-click to open in a browser).
+2) Edit Researchers, Projects, and Publications.
+3) Upload PPTX files in the editor so slide previews are generated.
+4) Export the ZIP (`site-content-YYYY-MM-DD.zip`).
+5) Upload `data.xlsx` to repo root, PPTX files to `/presentations`, and images to `/images`.
+
+Note: `local-editor/` is ignored in `.gitignore` so it will not be pushed to GitHub Pages.
 
 ## Excel Schema
 Create `data.xlsx` with three sheets:

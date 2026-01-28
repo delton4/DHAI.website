@@ -733,6 +733,68 @@ strong {
   justify-content: flex-end;
 }
 
+.admin-projects-panel {
+  display: grid;
+  gap: 18px;
+}
+
+.admin-projects-controls {
+  justify-content: flex-start;
+}
+
+.admin-form-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-field-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-field-row > :nth-child(2) {
+  min-width: 0;
+}
+
+.admin-field-row label {
+  font-weight: 600;
+  color: var(--text-primary);
+  text-transform: capitalize;
+}
+
+.admin-form-stack input,
+.admin-form-stack textarea,
+.admin-form-stack select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--stroke);
+  padding: 12px 14px;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: rgba(16, 30, 52, 0.9);
+}
+
+.admin-form-stack input.readonly,
+.admin-form-stack textarea.readonly {
+  background: rgba(16, 30, 52, 0.6);
+  color: var(--text-muted);
+}
+
+.admin-form-stack input.is-invalid,
+.admin-form-stack textarea.is-invalid,
+.admin-form-stack select.is-invalid {
+  border-color: rgba(153, 47, 47, 0.7);
+}
+
+.admin-form-stack textarea {
+  min-height: 180px;
+  resize: vertical;
+}
+
 .admin-table {
   width: 100%;
   border-collapse: collapse;
@@ -813,18 +875,20 @@ strong {
   font-size: 0.95rem;
   line-height: 1.4;
   flex: 1 1 auto;
+  align-items: start;
 }
 
 .admin-checkbox {
-  display: flex;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
   align-items: flex-start;
   cursor: pointer;
   color: var(--text-primary);
 }
 
 .admin-checkbox input {
-  margin-top: 2px;
+  margin: 2px 0 0;
 }
 
 .admin-table input[type="number"] {
